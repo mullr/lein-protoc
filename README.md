@@ -1,6 +1,6 @@
 # lein-protoc
 
-[![Build Status](https://travis-ci.org/LiaisonTechnologies/lein-protoc.svg?branch=master)](https://travis-ci.org/bsima/lein-protoc)
+[![Build Status](https://travis-ci.org/LiaisonTechnologies/lein-protoc.svg?branch=master)](https://travis-ci.org/LiaisonTechnologies/lein-protoc)
 
 A Leiningen plugin to compile [Google Protocol Buffers](https://developers.google.com/protocol-buffers/) to Java
 
