@@ -2,6 +2,8 @@
 
 [![Build Status](https://travis-ci.org/LiaisonTechnologies/lein-protoc.svg?branch=master)](https://travis-ci.org/LiaisonTechnologies/lein-protoc)
 
+> [API Docs](https://liaisontechnologies.github.io/lein-protoc/)
+
 A Leiningen plugin to compile [Google Protocol Buffers](https://developers.google.com/protocol-buffers/) to Java
 
 This plugin provides seamless support for building projects that include `.proto` files. There
