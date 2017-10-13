@@ -24,7 +24,10 @@
            [java.util.concurrent TimeUnit]))
 
 (def +protoc-version-default+
-  :latest)
+  "3.4.0")
+
+(def +protoc-grpc-version-default+
+  "1.6.1")
 
 (def +proto-source-paths-default+
   ["src/proto"])
@@ -343,7 +346,7 @@
    :protoc-grpc-exe
    (when protoc-grpc
      (resolve-protoc-grpc!
-       (or (:version protoc-grpc) +protoc-version-default+)))})
+       (or (:version protoc-grpc) +protoc-grpc-version-default+)))})
 
 (defn all-source-paths
   [{:keys [proto-source-paths] :as project}]
@@ -370,7 +373,6 @@
   project.clj:
 
     :protoc-version     :: the Protocol Buffers Compiler version to use.
-                           Defaults to `:latest`
 
     :proto-source-paths :: vector of absolute paths or paths relative to
                            the project root that contain the .proto files
@@ -384,7 +386,6 @@
                            service definitions with default settings. Can
                            optionally provide a map with the following configs:
                              :version     - version number for gRPC codegen.
-                                            Defaults to :latest.
                              :target-path - absolute path or path relative to
                                             the project root where the sources
                                             should be generated. Defaults to
