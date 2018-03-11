@@ -7,6 +7,7 @@
             [leiningen.core.utils]
             [leiningen.core.classpath :as classpath]
             [leiningen.javac]
+            [leiningen.deps]
             [robert.hooke :as hooke]
             [clojure.string :as string])
   (:import [java.io File]
@@ -156,30 +157,27 @@
         first
         second)))
 
+(def default-maven-repo
+  (io/file (System/getProperty "user.home") ".m2" "repository"))
+
 (defn protoc-file
-  [version classifier]
-  (io/file
-    (System/getProperty "user.home")
-    ".m2"
-    "repository"
-    "com"
-    "google"
-    "protobuf"
-    "protoc"
-    version
-    (str "protoc-" version "-" classifier ".exe")))
+  [maven-repo version classifier]
+  (io/file maven-repo
+           "com"
+           "google"
+           "protobuf"
+           "protoc"
+           version
+           (str "protoc-" version "-" classifier ".exe")))
 
 (defn protoc-grpc-file
-  [version classifier]
-  (io/file
-    (System/getProperty "user.home")
-    ".m2"
-    "repository"
-    "io"
-    "grpc"
-    "protoc-gen-grpc-java"
-    version
-    (str "protoc-gen-grpc-java-" version "-" classifier ".exe")))
+  [maven-repo version classifier]
+  (io/file maven-repo
+           "io"
+           "grpc"
+           "protoc-gen-grpc-java"
+           version
+           (str "protoc-gen-grpc-java-" version "-" classifier ".exe")))
 
 (defn get-os
   []
@@ -194,24 +192,25 @@
 (defn resolve!
   "Resolves the Google Protocol Buffers code generation artifact+version in the
   local maven repository if it exists or downloads from Maven Central"
-  [artifact protoc-version]
+  [maven-repo artifact protoc-version]
   (let [classifier  (str (get-os) "-" (get-arch))
         version     (if (= :latest protoc-version)
                       (latest-version artifact)
                       protoc-version)
         coordinates [artifact version :classifier classifier :extension "exe"]]
-    (aether/resolve-artifacts :coordinates [coordinates])
+    (aether/resolve-artifacts :coordinates [coordinates]
+                              :local-repo maven-repo)
     coordinates))
 
 (defn resolve-protoc!
   "Given a string com.google.protobuf/protoc version or `:latest`, will ensure
   the required protoc executable is available in the local Maven repository
   either from a previous download, or will download from Maven Central."
-  [protoc-version]
+  [maven-repo protoc-version]
   (try
     (let [[_ version _ classifier]
-          (resolve! 'com.google.protobuf/protoc protoc-version)]
-      (let [pfile (protoc-file version classifier)]
+          (resolve! maven-repo 'com.google.protobuf/protoc protoc-version)]
+      (let [pfile (protoc-file maven-repo version classifier)]
         (.setExecutable pfile true)
         (.getAbsolutePath pfile)))
     (catch Exception e
@@ -222,11 +221,11 @@
   ensure the required protoc executable is available in the local Maven
   repository either from a previous download, or will download from Maven
   Central."
-  [protoc-version]
+  [maven-repo protoc-version]
   (try
     (let [[_ version _ classifier]
-          (resolve! 'io.grpc/protoc-gen-grpc-java protoc-version)]
-      (let [pfile (protoc-grpc-file version classifier)]
+          (resolve! maven-repo 'io.grpc/protoc-gen-grpc-java protoc-version)]
+      (let [pfile (protoc-grpc-file maven-repo version classifier)]
         (.setExecutable pfile true)
         (.getAbsolutePath pfile)))
     (catch Exception e
@@ -339,14 +338,16 @@
         o-err (explain :protoc/timeout protoc-timeout)]
     (remove nil? [v-err g-err s-err t-err o-err])))
 
-(defn compiler-details
-  [{:keys [protoc-version protoc-grpc] :as project}]
-  {:protoc-exe
-   (resolve-protoc! (or protoc-version +protoc-version-default+))
-   :protoc-grpc-exe
-   (when protoc-grpc
-     (resolve-protoc-grpc!
-       (or (:version protoc-grpc) +protoc-grpc-version-default+)))})
+(defn resolve-compiler-details!
+  [{:keys [protoc-version protoc-grpc local-repo] :as project}]
+  (let [maven-repo (or local-repo default-maven-repo)]
+   {:protoc-exe
+    (resolve-protoc! maven-repo
+                     (or protoc-version +protoc-version-default+))
+    :protoc-grpc-exe
+    (when protoc-grpc
+      (resolve-protoc-grpc! maven-repo
+                            (or (:version protoc-grpc) +protoc-grpc-version-default+)))}))
 
 (defn all-source-paths
   [{:keys [proto-source-paths] :as project}]
@@ -402,7 +403,7 @@
       (print-warn-msg (format "Invalid configurations received: %s"
                               (string/join "," errors)))
       (compile-proto!
-        (compiler-details project)
+        (resolve-compiler-details! project)
         (all-source-paths project)
         (all-target-paths project)
         (or protoc-timeout +protoc-timeout-default+)))))
