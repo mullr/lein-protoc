@@ -82,8 +82,8 @@
        (map #(.getAbsolutePath %))))
 
 (defn- outdated-protos?
-  [src-paths target-path]
-  (let [proto-files (map io/file (mapcat proto-files src-paths))
+  [src-files target-path]
+  (let [proto-files (map io/file src-files)
         out-files (filter java? (file-seq (io/file target-path)))]
     (or (empty? out-files)
         (>= (apply max (map (memfn lastModified) proto-files))
@@ -99,11 +99,10 @@
 
 (defn build-cmd
   [{:keys [protoc-exe protoc-grpc-exe]}
-   {:keys [proto-source-paths builtin-proto-path]}
+   {:keys [proto-source-paths builtin-proto-path proto-source-files]}
    {:keys [proto-target-path grpc-target-path]}]
-  (let [all-srcs        (if builtin-proto-path
-                          (conj proto-source-paths builtin-proto-path)
-                          proto-source-paths)
+  (let [all-srcs (concat (or [builtin-proto-path] [])
+                         (or proto-source-paths []))
         src-paths-args  (map str->src-path-arg all-srcs)
         target-path-arg (str "--java_out="
                              (resolve-target-path! proto-target-path))
@@ -113,9 +112,10 @@
         grpc-path-arg   (when protoc-grpc-exe
                           (str "--grpc-java_out="
                                (resolve-target-path! grpc-target-path)))
-        proto-files     (mapcat proto-files proto-source-paths)]
+        proto-files (or (some->> proto-source-files (map io/file) (map #(.getAbsolutePath %)))
+                        (mapcat proto-files proto-source-paths))]
     (when (and (not-empty proto-files)
-               (outdated-protos? proto-source-paths proto-target-path))
+               (outdated-protos? proto-files proto-target-path))
       (main/info "Compiling" (count proto-files) "proto files:" proto-files)
       (->> (concat [protoc-exe target-path-arg grpc-plugin-arg grpc-path-arg]
                    src-paths-args
@@ -350,10 +350,14 @@
                             (or (:version protoc-grpc) +protoc-grpc-version-default+)))}))
 
 (defn all-source-paths
-  [{:keys [proto-source-paths] :as project}]
+  [{:keys [proto-source-paths proto-source-files] :as project}]
   {:proto-source-paths
    (mapv (partial qualify-path project)
          (or proto-source-paths +proto-source-paths-default+))
+
+   :proto-source-files
+   (mapv (partial qualify-path project)
+         (or proto-source-files []))
    :builtin-proto-path
    (resolve-builtin-proto! project)})
 
