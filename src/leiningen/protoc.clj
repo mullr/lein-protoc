@@ -413,6 +413,12 @@
   (protoc (first args))
   (apply f args))
 
+(defn deps-hook
+  [f & args]
+  (resolve-compiler-details! (first args)) 
+  (apply f args))
+
 (defn activate
   []
-  (hooke/add-hook #'leiningen.javac/javac #'javac-hook))
+  (hooke/add-hook #'leiningen.javac/javac #'javac-hook)
+  (hooke/add-hook #'leiningen.deps/deps #'deps-hook))
